@@ -9,6 +9,15 @@ you let it touch real funds.
 Live execution is built in and it does work, but it is deliberately locked
 behind a few switches. See [Live trading](LIVE.md) before you ever turn it on.
 
+Licensed under the MIT License. See [LICENSE](LICENSE).
+dollar-cost-averaging (DCA) strategy. It runs on your machine, pulls live
+on-chain prices, shows what it is doing on a local dashboard, and by default
+trades on paper (simulated) money so you can prove the strategy works before
+you let it touch real funds.
+
+Live execution is built in and it does work, but it is deliberately locked
+behind a few switches. See [Live trading](LIVE.md) before you ever turn it on.
+
 ## What it does
 
 The bot runs a loop that reads the price and decides whether to place orders.
