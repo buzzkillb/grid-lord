@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sol-grid-bot · command center</title>
+<style>
+  :root {
+    --bg: #05060a;
+    --bg2: #080a10;
+    --panel: #0d1018;
+    --panel2: #12161f;
+    --border: #1d2331;
+    --border2: #262d3e;
+    --text: #eef1f8;
+    --muted: #8b93ab;
+    --dim: #5b6480;
+    --green: #2fe6a0;
+    --green-dim: rgba(47,230,160,.14);
+    --red: #ff5570;
+    --red-dim: rgba(255,85,112,.14);
+    --amber: #f7c15c;
+    --amber-dim: rgba(247,193,92,.14);
+    --accent: #7c8cff;
+    --accent-dim: rgba(124,140,255,.16);
+    --cyan: #37c8f0;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: radial-gradient(1200px 600px at 50% -10%, #10131f 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-dim); }
+  a { color: var(--accent); text-decoration: none; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px; border-bottom: 1px solid var(--border);
+    background: rgba(8,10,16,.82); backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    color: #05060a; font-weight: 800; font-size: 15px; box-shadow: 0 0 18px rgba(124,140,255,.35);
+  }
+  .brand h1 { font-size: 17px; letter-spacing: .3px; margin: 0; font-weight: 700; }
+  .brand .tag { font-size: 11px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+  .mode { font-family: var(--mono); font-size: 11px; padding: 4px 11px; border-radius: 20px;
+    border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .mode.live { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+  .mode.paper { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .right { display: flex; align-items: center; gap: 14px; }
+  .clock { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .disp { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); }
+  .dot.live { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .dot.paused { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+  .dot.off { background: var(--red); box-shadow: 0 0 10px var(--red); }
+  button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border2);
+    border-radius: 9px; padding: 8px 15px; cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: border-color .15s, background .15s, transform .05s;
+  }
+  button:hover { border-color: var(--accent); background: var(--accent-dim); }
+  button:active { transform: translateY(1px); }
+  button.paused { border-color: var(--amber); color: var(--amber); }
+
+  main { max-width: 1360px; margin: 0 auto; padding: 22px; }
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 20px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 5px;
+    width: fit-content;
+  }
+  .tab {
+    padding: 9px 18px; cursor: pointer; border-radius: 9px; font-size: 13px; font-weight: 600;
+    color: var(--muted); border: 1px solid transparent; background: transparent;
+    transition: color .15s, background .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); background: var(--panel2); border-color: var(--border2); box-shadow: 0 0 0 1px rgba(124,140,255,.12); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section {
+    background: linear-gradient(180deg, var(--panel), var(--bg2));
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  }
+  .section h2 {
+    font-size: 12px; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .section h2 .hl { color: var(--accent); }
+  .section h2 .muted { color: var(--dim); font-weight: 400; }
+
+  .grid-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel), var(--bg2));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 18px 16px;
+    position: relative; overflow: hidden;
+  }
+  .card::before { content:""; position:absolute; inset:0 0 auto 0; height:2px; background: var(--cardline, var(--border2)); opacity:.6; }
+  .card .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; }
+  .card .value { font-size: 30px; font-weight: 800; font-family: var(--mono); letter-spacing: -1px; line-height: 1.05; }
+  .card .value.sm { font-size: 22px; }
+  .card .sub { font-size: 11.5px; color: var(--dim); margin-top: 7px; }
+  .card.hero .value { font-size: 40px; }
+  .num.up { color: var(--green); } .num.down { color: var(--red); } .num.neutral { color: var(--text); }
+  .flash-up { animation: flashUp 1s ease; }
+  .flash-down { animation: flashDown 1s ease; }
+  @keyframes flashUp { 0% { color: var(--green); text-shadow:0 0 22px var(--green); } 100% { text-shadow:none; } }
+  @keyframes flashDown { 0% { color: var(--red); text-shadow:0 0 22px var(--red); } 100% { text-shadow:none; } }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--dim); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; }
+  td { font-family: var(--mono); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(124,140,255,.05); }
+  .pill { padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: .4px; }
+  .pill.sell { background: var(--red-dim); color: var(--red); }
+  .pill.buy { background: var(--green-dim); color: var(--green); }
+  .pill.filled { background: var(--accent-dim); color: var(--accent); }
+  .pill.open { background: var(--amber-dim); color: var(--amber); }
+  .pill.cancelled, .pill.rejected, .pill.CANCELLED { color: var(--dim); background: rgba(91,100,128,.12); }
+  .pill.live { background: var(--green-dim); color: var(--green); }
+  .pill.paper { background: var(--accent-dim); color: var(--accent); }
+  .empty { color: var(--dim); font-size: 13px; padding: 18px 0; text-align: center; }
+
+  .meter { margin: 10px 0 4px; }
+  .meter .bar-bg { height: 12px; background: var(--panel2); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .meter .bar-fill { height: 100%; border-radius: 8px; transition: width .5s ease; background: linear-gradient(90deg, var(--accent), var(--cyan)); }
+  .meter.hot .bar-fill { background: linear-gradient(90deg, var(--amber), var(--red)); }
+  .meter .cap { font-size: 11px; color: var(--dim); margin-top: 6px; font-family: var(--mono); }
+
+  .statline { display: flex; gap: 26px; font-size: 12px; color: var(--muted); margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  .statline b { color: var(--text); font-family: var(--mono); font-weight: 600; }
+
+  .ladder { display: flex; flex-direction: column; gap: 7px; }
+  .lvl {
+    display: grid; grid-template-columns: 100px 1fr 130px; gap: 14px; align-items: center;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .lvl .tag { text-align: right; font-weight: 700; color: var(--text); }
+  .lvl .track { position: relative; height: 26px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .lvl .fill { position: absolute; inset: 0; opacity: .6; }
+  .lvl .fill.buy { background: linear-gradient(90deg, rgba(47,230,160,.35), rgba(47,230,160,.05)); }
+  .lvl .fill.sell { background: linear-gradient(90deg, rgba(124,140,255,.05), rgba(124,140,255,.35)); }
+  .lvl .marker { position: absolute; top: -3px; bottom: -3px; width: 3px; border-radius: 3px; }
+  .lvl .marker.live { background: var(--text); box-shadow: 0 0 12px rgba(238,241,248,.9); z-index: 3; }
+  .lvl .marker.lvlprice { background: var(--amber); z-index: 2; }
+  .lvl .qty { font-size: 11.5px; color: var(--muted); text-align: right; }
+
+  .seg { display: inline-flex; gap: 4px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+  .seg button { padding: 4px 11px; font-size: 11px; border-radius: 6px; border: none; background: transparent; color: var(--muted); }
+  .seg button.active { background: var(--panel2); color: var(--text); border: 1px solid var(--border2); }
+
+  .chip { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; background:var(--panel2); border:1px solid var(--border); }
+
+  .alloc { display: flex; flex-direction: column; gap: 10px; }
+  .alloc-row { display: grid; grid-template-columns: 90px 1fr 80px; gap: 12px; align-items: center; font-size: 12px; }
+  .alloc-row .n { color: var(--muted); }
+  .alloc-row .bwrap { height: 14px; background: var(--panel2); border-radius: 7px; overflow: hidden; border:1px solid var(--border); }
+  .alloc-row .bfill { height: 100%; border-radius: 7px; }
+  .alloc-row .v { text-align: right; font-family: var(--mono); font-weight: 600; }
+
+  .meme-card { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; padding: 16px; border:1px solid var(--border); border-radius: 12px; background: var(--panel2); }
+  .meme-card .m-name { font-size: 16px; font-weight: 700; }
+  .meme-card .m-price { font-size: 20px; font-family: var(--mono); font-weight: 700; }
+  .meme-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12.5px; }
+  .kv dt { color: var(--dim); } .kv dd { margin:0; font-family: var(--mono); color: var(--text); }
+  .divider { height:1px; background: var(--border); margin: 12px 0; }
+
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  @media (max-width: 980px) {
+    .grid-cards { grid-template-columns: repeat(2, 1fr); }
+    .row2, .row3, .meme-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">◈</div>
+    <div>
+      <h1>sol-grid-bot</h1>
+      <div class="tag">Live command center</div>
+    </div>
+    <span class="mode" id="modeBadge">paper</span>
+  </div>
+  <div class="right">
+    <div class="disp"><span class="dot" id="statusDot"></span><span id="statusText" style="font-size:12px;color:var(--muted)">—</span></div>
+    <div class="clock" id="liveClock">—</div>
+    <button id="pauseBtn">Pause</button>
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="sol">SOL Book</div>
+    <div class="tab" data-tab="memes">Memes</div>
+  </div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div class="tab-panel active" id="panel-overview">
+
+    <div class="grid-cards">
+      <div class="card hero" style="--cardline:var(--accent)">
+        <div class="label">Net Worth</div>
+        <div class="value num" id="ovNetWorth">—</div>
+        <div class="sub" id="ovNetWorthSub">—</div>
+      </div>
+      <div class="card hero" style="--cardline:var(--green)">
+        <div class="label">Realized PnL</div>
+        <div class="value num" id="ovPnL">—</div>
+        <div class="sub" id="ovPnLSub">USD, after fees</div>
+      </div>
+      <div class="card hero" style="--cardline:var(--cyan)">
+        <div class="label">Unrealized PnL</div>
+        <div class="value num" id="ovUnreal">—</div>
+        <div class="sub" id="ovUnrealSub">open basket</div>
+      </div>
+      <div class="card hero" style="--cardline:var(--amber)">
+        <div class="label">SOL Price</div>
+        <div class="value" id="ovPrice">—</div>
+        <div class="sub" id="ovChg">—</div>
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="section">
+        <h2>Equity Curve <span class="muted" id="ovEquityPeak">—</span></h2>
+        <svg id="equityChart" viewBox="0 0 820 220" preserveAspectRatio="none"
+             style="width:100%;height:210px;display:block"></svg>
+        <div class="statline">
+          <span>Current <b id="ovEquityCur">—</b></span>
+          <span>Peak <b id="ovEquityHigh">—</b></span>
+          <span>Drawdown <b id="ovEquityDd">—</b></span>
+        </div>
+      </div>
+      <div class="section">
+        <h2>Deployment <span class="muted" id="deployLabel">—</span></h2>
+        <div class="meter" id="deployMeter">
+          <div class="bar-bg"><div class="bar-fill" id="deployFill" style="width:0%"></div></div>
+          <div class="cap" id="deployCap">—</div>
+        </div>
+        <div class="statline">
+          <span>Funds deployed <b id="deployUsd">—</b></span>
+          <span>Capital cap <b id="deployMax">—</b></span>
+        </div>
+        <div class="divider"></div>
+        <h2>Allocation</h2>
+        <div class="alloc" id="allocBars"></div>
+      </div>
+      <div class="section">
+        <h2>Risk &amp; Health</h2>
+        <dl class="kv">
+          <dt>Hard stop</dt><dd id="riskHardStop">—</dd>
+          <dt>Unrealized stop</dt><dd id="riskUnreal">—</dd>
+          <dt>Max slippage</dt><dd id="riskSlippage">—</dd>
+          <dt>Band occupancy</dt><dd id="riskBand">—</dd>
+          <dt>Status</dt><dd id="riskStatus">—</dd>
+        </dl>
+        <div class="note" id="riskNote"></div>
+        <div class="divider"></div>
+        <h2>Performance <span class="muted">(24h)</span></h2>
+        <dl class="kv">
+          <dt>Win rate</dt><dd id="statWinRate">—</dd>
+          <dt>Profit factor</dt><dd id="statPF">—</dd>
+          <dt>Fills / hr</dt><dd id="statFills">—</dd>
+          <dt>Total fees</dt><dd id="statFees">—</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="section">
+        <h2>Position <span class="muted" id="posLabel">—</span></h2>
+        <dl class="kv">
+          <dt>Open SOL</dt><dd id="cardOpenSol">—</dd>
+          <dt>USDC balance</dt><dd id="cardUsdc">—</dd>
+          <dt>Avg cost</dt><dd id="cardAvgCost">—</dd>
+          <dt>VWAP</dt><dd id="cardVwap">—</dd>
+          <dt>24h range</dt><dd id="cardRange">—</dd>
+          <dt>Fees paid</dt><dd id="cardFees">—</dd>
+        </dl>
+      </div>
+      <div class="section">
+        <h2>Grid Band <span class="muted" id="bandOcc">—</span></h2>
+        <dl class="kv">
+          <dt>Lower</dt><dd id="bandLower">—</dd>
+          <dt>Upper</dt><dd id="bandUpper">—</dd>
+          <dt>Inside samples</dt><dd id="bandSamples">—</dd>
+          <dt>Inside share</dt><dd id="bandPct">—</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <!-- /overview -->
+
+  <!-- ============ SOL BOOK ============ -->
+  <div class="tab-panel" id="panel-sol">
+    <div class="section">
+      <h2>Grid Ladder <span class="muted" id="gridRange">—</span></h2>
+      <div class="statline" style="margin-top:0;margin-bottom:12px">
+        <span>Anchor <b id="gridAnchor">—</b></span>
+        <span>Step <b id="gridStep">—</b></span>
+        <span>Levels <b id="gridLevels">—</b></span>
+        <span>Armed <b id="gridArmed">—</b></span>
+      </div>
+      <div class="ladder" id="gridLadder"></div>
+    </div>
+
+    <div class="section">
+      <h2>DCA Status <span class="muted" id="dcaLabel">—</span></h2>
+      <div class="statline">
+        <span>Buys <b id="dcaBuys">—</b></span>
+        <span>Avg cost <b id="dcaAvg">—</b></span>
+        <span>Held <b id="dcaHeld">—</b></span>
+        <span>Peak price <b id="dcaPeak">—</b></span>
+        <span>Take-profit <b id="dcaTp">—</b></span>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="section">
+        <h2>Orders</h2>
+        <table id="ordersTable"><thead><tr><th>Side</th><th>Price</th><th>Qty</th><th>Kind</th><th>Status</th><th>Time</th></tr></thead><tbody></tbody></table>
+        <div class="empty" id="ordersEmpty" style="display:none">No orders yet</div>
+      </div>
+      <div class="section">
+        <h2>Trades / Fills</h2>
+        <table id="tradesTable"><thead><tr><th>Side</th><th>Price</th><th>Qty</th><th>PnL</th><th>Fee</th><th>Time</th></tr></thead><tbody></tbody></table>
+        <div class="empty" id="tradesEmpty" style="display:none">No trades yet</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Performance Telemetry <span class="muted">measurement-only</span>
+        <span class="seg" id="perfWinControls">
+          <button data-w="24h" class="active">24h</button>
+          <button data-w="7d">7d</button>
+          <button data-w="all">All</button>
+        </span>
+      </h2>
+      <div id="perf"></div>
+    </div>
+  </div>
+  <!-- /sol -->
+
+  <!-- ============ MEMES ============ -->
+  <div class="tab-panel" id="panel-memes">
+    <div class="section">
+      <h2>Graduated Memes · thin-liquidity smart book</h2>
+      <div class="meme-grid" id="memeCards"></div>
+      <div class="statline" style="margin-top:16px">
+        <span>Real data only — admission gate refuses deployment until real 24h volume &amp; liquidity clear minimums.</span>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="section">
+        <h2>Meme Orders</h2>
+        <table id="memeOrdersTable"><thead><tr><th>Meme</th><th>Side</th><th>Price</th><th>Qty</th><th>Kind</th><th>Status</th><th>Time</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="section">
+        <h2>Meme Trades</h2>
+        <table id="memeTradesTable"><thead><tr><th>Meme</th><th>Side</th><th>Price</th><th>Qty</th><th>PnL</th><th>Fee</th><th>Time</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+  <!-- /memes -->
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let ws;
+  let perfWin = '24h';
+  let lastPrice = null;
+  let lastSnapshot = null;
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+    ws.onmessage = (e) => render(JSON.parse(e.data));
+    ws.onclose = () => { setStatus('disconnected', 'off'); setTimeout(connect, 2000); };
+    ws.onopen = () => setStatus('connected', 'live');
+  }
+
+  function tickClock() {
+    $('liveClock').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+      tab.classList.add('active');
+      $('panel-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  function fmt(n, d = 2) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function fmtUsd(n, d = 2) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    return (n < 0 ? '-$' : '$') + fmt(Math.abs(n), d);
+  }
+  function fmtTime(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+  function fmtMicro(n) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    if (Math.abs(n) >= 1) return fmt(n, 4);
+    const magnitude = Math.floor(Math.log10(Math.abs(n)));
+    const decimals = Math.min(12, Math.max(8, -magnitude + 3));
+    return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+  function pnlCls(v) { return v > 0 ? 'pos' : v < 0 ? 'neg' : ''; }
+  const clsNum = (v) => v > 0 ? 'num up' : v < 0 ? 'num down' : 'num';
+
+  const KIND_LABEL = { GRID_BUY:'GRID', GRID_SELL:'GRID', DCA_BUY:'DCA', DCA_SELL:'DCA-TP' };
+
+  function setStatus(text, state) {
+    $('statusDot').className = 'dot ' + (state === 'live' ? 'live' : state === 'paused' ? 'paused' : 'off');
+    $('statusText').textContent = text;
+    const btn = $('pauseBtn');
+    btn.textContent = (state === 'paused') ? 'Resume' : 'Pause';
+    btn.className = (state === 'paused') ? 'paused' : '';
+  }
+
+  document.querySelectorAll('#perfWinControls button').forEach((b) => {
+    b.addEventListener('click', () => {
+      perfWin = b.dataset.w;
+      document.querySelectorAll('#perfWinControls button').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      if (lastSnapshot) renderPerf(lastSnapshot);
+    });
+  });
+
+  function render(s) {
+    lastSnapshot = s;
+    const a = s.account;
+    $('modeBadge').textContent = s.mode;
+    $('modeBadge').className = 'mode ' + s.mode;
+
+    const priceEl = $('ovPrice');
+    if (s.price > 0) {
+      priceEl.textContent = '$' + fmt(s.price);
+      priceEl.className = 'value num neutral';
+      if (lastPrice !== null && s.price !== lastPrice) {
+        priceEl.className = 'value num neutral flash-' + (s.price > lastPrice ? 'up' : 'down');
+      }
+      lastPrice = s.price;
+    } else priceEl.textContent = '—';
+
+    const solVal = a.balances.SOL * s.price;
+    const netWorth = a.balances.USDC + solVal;
+    $('ovNetWorth').textContent = fmtUsd(netWorth);
+    const allocDenom = netWorth > 0 ? netWorth : 1;
+    $('ovNetWorthSub').textContent =
+      `${fmt(a.balances.SOL,4)} SOL (${(solVal/allocDenom*100).toFixed(1)}%) + ${fmtUsd(a.balances.USDC)} USDC`;
+
+    $('ovPnL').textContent = (a.realizedPnlUsd >= 0 ? '+' : '') + fmt(a.realizedPnlUsd) + ' $';
+    $('ovPnL').className = 'value num ' + pnlCls(a.realizedPnlUsd);
+    $('ovPnLSub').textContent = 'total fees ' + fmtUsd(a.feesPaidUsd || 0, 4);
+
+    const unreal = s.risk.unrealizedPnlUsd;
+    $('ovUnreal').textContent = (unreal >= 0 ? '+' : '') + fmt(unreal) + ' $';
+    $('ovUnreal').className = 'value num ' + pnlCls(unreal);
+    $('ovUnrealSub').textContent = 'open basket vs avg cost';
+
+    if (s.equityHistory && s.equityHistory.length > 1) {
+      const first = s.equityHistory[0].equityUsd;
+      const lastEq = s.equityHistory[s.equityHistory.length-1].equityUsd;
+      if (first > 0) {
+        const chg = ((lastEq - first)/first)*100;
+        $('ovChg').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% (24h)';
+        $('ovChg').className = pnlCls(chg);
+      }
+    } else $('ovChg').textContent = '—';
+
+    const pos = Object.values(a.positions)[0];
+    const m = s.market || {};
+    $('posLabel').textContent = pos ? `${pos.baseAsset}/${pos.quoteAsset}` : '—';
+    $('cardOpenSol').textContent = fmt(a.openQty, 4) + ' SOL';
+    $('cardUsdc').textContent = fmtUsd(a.balances.USDC);
+    $('cardAvgCost').textContent = pos ? '$' + fmt(pos.avgCostPerBase) : '—';
+    $('cardVwap').textContent = m.vwap ? '$' + fmt(m.vwap) : '—';
+    $('cardRange').textContent = (m.low24h && m.high24h) ? '$' + fmt(m.low24h) + ' – $' + fmt(m.high24h) : '—';
+    $('cardFees').textContent = fmtUsd(a.feesPaidUsd || 0, 4);
+
+    const max = s.risk.maxUsdcPosition;
+    const deployed = s.risk.deployedUsd || 0;
+    const pct = max > 0 ? Math.min(100, (deployed/max)*100) : 0;
+    $('deployLabel').textContent = 'deployment';
+    $('deployUsd').textContent = fmtUsd(deployed);
+    $('deployMax').textContent = fmtUsd(max);
+    $('deployFill').style.width = pct + '%';
+    $('deployMeter').className = 'meter' + (pct > 85 ? ' hot' : '');
+    $('deployCap').textContent = pct.toFixed(1) + '% of capital cap deployed';
+
+    $('riskHardStop').textContent = (s.risk.hardStopPct*100).toFixed(0) + '%';
+    $('riskUnreal').textContent = (s.risk.unrealizedHardStopPct*100).toFixed(0) + '%';
+    $('riskSlippage').textContent = (s.risk.maxSlippageBps/100).toFixed(1) + '%';
+    const band = s.perf && s.perf.band;
+    if (band && band.upper > 0) {
+      $('riskBand').textContent = (band.insidePct*100).toFixed(1) + '% in band';
+    } else $('riskBand').textContent = '—';
+    $('riskStatus').textContent = s.risk.paused ? 'PAUSED' : 'LIVE';
+    $('riskStatus').className = s.risk.paused ? 'neg' : 'pos';
+    $('riskNote').innerHTML = s.risk.pauseReason
+      ? `<div style="margin-top:8px;font-size:12px;color:var(--amber)">⚠ ${s.risk.pauseReason}</div>` : '';
+
+    if (band && band.upper > 0) {
+      $('bandLower').textContent = '$' + fmt(band.lower, 2);
+      $('bandUpper').textContent = '$' + fmt(band.upper, 2);
+      $('bandSamples').textContent = band.samples.toLocaleString();
+      $('bandPct').textContent = (band.insidePct*100).toFixed(1) + '%';
+      $('bandPct').className = band.insidePct > 0.5 ? 'pos' : 'neg';
+      $('bandOcc').textContent = 'occupancy';
+    } else { $('bandLower').textContent = $('bandUpper').textContent = $('bandSamples').textContent = '—'; }
+
+    renderEquity(s);
+    renderAlloc(s);
+    renderPerfStats(s);
+    renderGrid(s);
+    renderDca(s);
+    renderOrders(s);
+    renderTrades(s);
+    renderPerf(s);
+    renderMemes(s);
+
+    // Each panel is defensive: if one painter throws (e.g. an unexpected null
+    // in a new field), the others still render instead of the whole frame
+    // aborting and leaving the dashboard blank.
+    const safe = (fn) => { try { fn(); } catch (e) { console.warn('[dash] panel render: ' + (e && e.message)); } };
+    safe(() => renderEquity(s));
+    safe(() => renderAlloc(s));
+    safe(() => renderPerfStats(s));
+    safe(() => renderGrid(s));
+    safe(() => renderDca(s));
+    safe(() => renderOrders(s));
+    safe(() => renderTrades(s));
+    safe(() => renderPerf(s));
+    safe(() => renderMemes(s));
+
+    setStatus(s.risk.paused ? 'PAUSED' : 'running', s.risk.paused ? 'paused' : 'live');
+  }
+
+  function renderEquity(s) {
+    const eq = s.equityHistory || [];
+    const svg = $('equityChart');
+    if (!eq.length) { svg.innerHTML = ''; $('ovEquityCur').textContent = $('ovEquityHigh').textContent = $('ovEquityDd').textContent = '—'; return; }
+    const vals = eq.map(p => p.equityUsd);
+    const hi = Math.max(...vals), lo = Math.min(...vals), last = vals[vals.length-1];
+    const peak = Math.max(...vals);
+    const dd = peak > 0 ? ((last-peak)/peak)*100 : 0;
+    $('ovEquityPeak').textContent = 'peak ' + fmtUsd(peak);
+    $('ovEquityCur').textContent = fmtUsd(last);
+    $('ovEquityHigh').textContent = fmtUsd(peak);
+    $('ovEquityDd').textContent = dd.toFixed(2) + '%';
+    $('ovEquityDd').className = dd < 0 ? 'num down' : 'num up';
+
+    const W = 820, H = 210, pad = 6;
+    const rng = (hi - lo) || 1;
+    const pts = vals.map((v,i) => {
+      const x = (i/Math.max(1,vals.length-1))*(W - pad*2) + pad;
+      const y = H - pad - ((v-lo)/rng)*(H - pad*2);
+      return [x,y];
+    });
+    const line = pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    const area = `${pad},${H-pad} ` + pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ') + ` ${W-pad},${H-pad}`;
+    const up = last >= vals[0];
+    const c = up ? 'var(--green)' : 'var(--red)';
+    svg.innerHTML = `
+      <defs><linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${up ? 'rgba(47,230,160,.30)' : 'rgba(255,85,112,.30)'}"/>
+        <stop offset="1" stop-color="rgba(0,0,0,0)"/>
+      </linearGradient></defs>
+      <polygon points="${area}" fill="url(#eqFill)"/>
+      <polyline points="${line}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="3.2" fill="${c}"/>`;
+  }
+
+  function renderAlloc(s) {
+    const netWorth = s.account.balances.USDC + s.account.balances.SOL * s.price;
+    const el = $('allocBars');
+    const gcfg = s.config.grid || {};
+    const dcfg = s.config.dca || {};
+    const cfgs = (s.config && s.config.memes) || [];
+    // Derive each bucket's target from the ACTUAL runtime config (WalletSizer
+    // mutates these to real equity-derived values, so this reflects the real
+    // deployment plan, not static defaults).
+    const gridBudget = (gcfg.usdcPerGrid || 0) * (gcfg.numLevels || 0);
+    const dcaBudget = (dcfg.usdcAmountPerBuy || 0) * (dcfg.vaHorizonBuys || 0);
+    const cybCap = cfgs.find(m => m.id === 'cyb')?.maxUsdcPosition || 0;
+    const slots = [
+      { n:'SOL Grid', c:'var(--accent)', v:gridBudget },
+      { n:'SOL DCA', c:'var(--cyan)', v:dcaBudget },
+      { n:'CYB Meme', c:'var(--green)', v:cybCap },
+    ];
+    let html = '';
+    for (const sl of slots) {
+      const pct = netWorth > 0 ? (Math.min(sl.v, netWorth)/netWorth*100) : 0;
+      html += `<div class="alloc-row">
+        <div class="n">${sl.n}</div>
+        <div class="bwrap"><div class="bfill" style="width:${pct}%;background:${sl.c}"></div></div>
+        <div class="v">${pct.toFixed(0)}%</div>
+      </div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  function renderPerfStats(s) {
+    const books = (s.perf && s.perf.booksAll) || [];
+    let fills = 0, fees = 0;
+    for (const b of books) {
+      fills += b.fills; fees += b.feesUsd;
+    }
+    const trs = s.trades || [];
+    let w = 0, l = 0, sw = 0, sl = 0;
+    for (const t of trs) {
+      if (t.direction === 'SELL' && typeof t.realizedPnlUsd === 'number') {
+        if (t.realizedPnlUsd > 0) { w++; sw += t.realizedPnlUsd; }
+        else if (t.realizedPnlUsd < 0) { l++; sl += t.realizedPnlUsd; }
+      }
+    }
+    const winRate = (w+l) > 0 ? w/(w+l) : 0;
+    const pf = sl < 0 ? sw/Math.abs(sl) : sw > 0 ? Infinity : 0;
+    $('statWinRate').textContent = (winRate*100).toFixed(0) + '%';
+    $('statWinRate').className = winRate > 0.5 ? 'pos' : 'neg';
+    $('statPF').textContent = pf === Infinity ? '∞' : pf.toFixed(2);
+    $('statPF').className = pf >= 1 ? 'pos' : 'neg';
+    $('statFills').textContent = fills + ' fills';
+    $('statFees').textContent = fmtUsd(fees, 4);
+  }
+
+  function renderGrid(s) {
+    const levels = (s.strategies.grid.levels) || [];
+    const prices = levels.map(l => l.price).filter(p => p > 0).sort((a,b)=>a-b);
+    const gLo = prices.length ? prices[0] : null;
+    const gHi = prices.length ? prices[prices.length-1] : null;
+    $('gridRange').textContent = gLo !== null ? `[$${fmt(gLo)} – $${fmt(gHi)}]` : '';
+    $('gridRange').className = 'muted';
+    // Anchor is DERIVED: the midpoint of the armed ladder (no `anchor` field).
+    const mid = prices.length ? (prices[0] + prices[prices.length-1]) / 2 : null;
+    $('gridAnchor').textContent = mid ? '$' + fmt(mid,2) : '—';
+    $('gridStep').textContent = prices.length > 1 ? '$' + fmt(prices[1]-prices[0],2) : '—';
+    $('gridLevels').textContent = levels.length;
+    const armed = levels.filter(l => l.buyOrderId || l.sellOrderId).length;
+    $('gridArmed').textContent = armed;
+
+    const ladder = $('gridLadder');
+    ladder.innerHTML = '';
+    const rangeSpan = (gHi !== null && gHi > gLo) ? gHi - gLo : 1;
+    for (const lv of levels) {
+      if (!(lv.price > 0)) continue;
+      const hasBuy = !!lv.buyOrderId, hasSell = !!lv.sellOrderId;
+      const side = hasBuy ? 'buy' : hasSell ? 'sell' : 'none';
+      const posInRange = ((lv.price - (gLo ?? 0))/rangeSpan)*100;
+      const inLive = s.price >= (gLo ?? 0) && s.price <= (gHi ?? 0);
+      const livePct = inLive ? ((s.price - (gLo ?? 0))/rangeSpan)*100 : -1;
+      const row = document.createElement('div');
+      row.className = 'lvl';
+      row.innerHTML = `
+        <div class="tag">$${fmt(lv.price,2)}</div>
+        <div class="track">
+          <div class="fill ${side}"></div>
+          <div class="marker lvlprice" style="left:${posInRange}%"></div>
+          ${livePct >= 0 ? `<div class="marker live" style="left:${livePct}%"></div>` : ''}
+        </div>
+        <div class="qty">${fmt(lv.baseQty,4)} SOL ${hasBuy ? '· BUY' : hasSell ? '· SELL' : ''}</div>`;
+      ladder.appendChild(row);
+    }
+  }
+
+  function renderDca(s) {
+    const d = s.strategies.dca || {};
+    $('dcaLabel').textContent = 'status';
+    $('dcaBuys').textContent = d.buys ?? '—';
+    $('dcaAvg').textContent = (d.subBook && d.subBook.avgCostPerBase) ? '$' + fmt(d.subBook.avgCostPerBase,2) : '—';
+    $('dcaHeld').textContent = (d.subBook && d.subBook.baseQty) ? fmt(d.subBook.baseQty,4) + ' SOL' : '—';
+    $('dcaPeak').textContent = d.peakPrice ? '$' + fmt(d.peakPrice,2) : '—';
+    $('dcaTp').textContent = d.lastTpAt ? 'armed' : '—';
+  }
+
+  function renderOrders(s) {
+    const ob = $('ordersTable').querySelector('tbody');
+    ob.innerHTML = '';
+    $('ordersEmpty').style.display = s.orders.length ? 'none' : '';
+    for (const o of s.orders.slice(0, 20)) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="pill ${o.side.toLowerCase()}">${o.side}</span></td>
+        <td>${fmtMicro(o.price)}</td><td>${fmt(o.baseQty,4)}</td>
+        <td>${KIND_LABEL[o.kind] || '—'}</td>
+        <td><span class="pill ${o.status.toLowerCase()}">${o.status}</span></td>
+        <td>${fmtTime(o.createdAt)}</td>`;
+      ob.appendChild(tr);
+    }
+  }
+
+  function renderTrades(s) {
+    const tb = $('tradesTable').querySelector('tbody');
+    tb.innerHTML = '';
+    $('tradesEmpty').style.display = s.trades.length ? 'none' : '';
+    for (const t of s.trades.slice(0, 20)) {
+      const pnl = t.realizedPnlUsd;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="pill ${t.direction.toLowerCase()}">${t.direction}</span></td>
+        <td>${fmtMicro(t.price)}</td><td>${fmt(t.baseQty,4)}</td>
+        <td class="${pnl ? pnlCls(pnl) : ''}">${pnl ? (pnl>=0?'+':'')+fmt(pnl) : '—'}</td>
+        <td>${fmt(t.feeUsd,4)}</td><td>${fmtTime(t.ts)}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+
+  function renderPerf(s) {
+    const p = s.perf;
+    const el = $('perf');
+    if (!p || !el) return;
+    const fmt$ = (v) => (v < 0 ? '-$' : '$') + fmt(Math.abs(v), 2);
+    const cls = (v) => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+    const list = perfWin === 'all' ? (p.booksAll || []) : perfWin === '7d' ? (p.books7d || []) : (p.books || []);
+    const winLabel = perfWin === 'all' ? 'all-time' : perfWin === '7d' ? '7 days' : '24 hours';
+    let rows = '';
+    for (const b of list) {
+      // profitFactor is null when there were zero losing fills (no denominator
+      // for a ratio) — treat it as infinite, never call .toFixed on null, which
+      // would throw and abort the whole render frame.
+      const pfRaw = b.profitFactor;
+      const pf = pfRaw == null || pfRaw === Infinity ? '∞' : pfRaw.toFixed(2);
+      rows += `<tr>
+        <td><b>${b.strategyId}</b></td>
+        <td class="${cls(b.realizedPnlUsd)}">${fmt$(b.realizedPnlUsd)}</td>
+        <td>${fmt$(b.feesUsd)}</td>
+        <td class="${cls(b.netPnlUsd)}"><b>${fmt$(b.netPnlUsd)}</b></td>
+        <td>${b.fills} (${b.fillsPerHour.toFixed(1)}/h)</td>
+        <td>${(b.winRate*100).toFixed(0)}%</td>
+        <td>${pf}</td></tr>`;
+    }
+    el.innerHTML = rows
+      ? `<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Window: <b>${winLabel}</b></div>
+         <table style="width:100%">
+           <tr><th align="left">Book</th><th align="right">Realized</th><th align="right">Fees</th><th align="right">Net</th><th align="right">Fills</th><th align="right">Win%</th><th align="right">PF</th></tr>
+           ${rows}</table>`
+      : '<div class="empty">No performance data in this window</div>';
+  }
+
+  function renderMemes(s) {
+    const memes = s.config.memes || [];
+    const box = $('memeCards');
+    box.innerHTML = '';
+    for (const slot of memes) {
+      const st = (s.strategies.memes || {})[slot.id] || {};
+      const price = st.price, vwap = st.vwap, liq = st.liquidityUsd, vol = st.vol24hUsd;
+      const qty = st.baseQty || 0;
+      const val = price ? qty * price : 0;
+      const admitted = st.admitted;
+      const card = document.createElement('div');
+      card.className = 'meme-card';
+      card.innerHTML = `
+        <div>
+          <div class="m-name">${slot.baseAsset} <span class="chip">${slot.id}</span></div>
+          <div class="m-price num">${price ? '$' + fmtMicro(price) : '—'}</div>
+          <div style="font-size:11px;color:var(--dim);margin-top:4px">VWAP ${vwap ? fmtMicro(vwap) : '—'} · 24h vol $${vol ? fmt(vol,0) : '—'}</div>
+        </div>
+        <dl class="kv">
+          <dt>Liquidity</dt><dd>${liq ? '$' + fmt(liq,0) : '—'}</dd>
+          <dt>Held</dt><dd>${fmt(qty,0)} ${slot.baseAsset}</dd>
+          <dt>Value</dt><dd>$<span class="${val>=0?'pos':'neg'}">${fmt(val)}</span></dd>
+          <dt>Deployed</dt><dd>$<span class="neg">${fmt(st.deployedUsd||0)}</span></dd>
+          <dt>Admitted</dt><dd>${admitted ? '<span class="pos">yes</span>' : '<span class="neg">no</span>'}</dd>
+          <dt>Realized</dt><dd class="${pnlCls(st.realizedPnlUsd)}">${st.realizedPnlUsd ? fmtUsd(st.realizedPnlUsd) : '—'}</dd>
+        </dl>`;
+      box.appendChild(card);
+    }
+
+    const mo = $('memeOrdersTable').querySelector('tbody');
+    const mt = $('memeTradesTable').querySelector('tbody');
+    mo.innerHTML = ''; mt.innerHTML = '';
+    for (const slot of memes) {
+      const id = slot.id;
+      for (const o of s.orders.slice(0, 30)) {
+        if (o.strategyId !== id) continue;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${id.toUpperCase()}</td>
+          <td><span class="pill ${o.side.toLowerCase()}">${o.side}</span></td>
+          <td>${fmtMicro(o.price)}</td><td>${fmt(o.baseQty,4)}</td>
+          <td>${KIND_LABEL[o.kind] || '—'}</td>
+          <td><span class="pill ${o.status.toLowerCase()}">${o.status}</span></td>
+          <td>${fmtTime(o.createdAt)}</td>`;
+        mo.appendChild(tr);
+      }
+      for (const t of s.trades.slice(0, 30)) {
+        if (t.strategyId !== id) continue;
+        const pnl = t.realizedPnlUsd;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${id.toUpperCase()}</td>
+          <td><span class="pill ${t.direction.toLowerCase()}">${t.direction}</span></td>
+          <td>${fmtMicro(t.price)}</td><td>${fmt(t.baseQty,4)}</td>
+          <td class="${pnl?pnlCls(pnl):''}">${pnl?(pnl>=0?'+':'')+fmt(pnl):'—'}</td>
+          <td>${fmt(t.feeUsd,4)}</td><td>${fmtTime(t.ts)}</td>`;
+        mt.appendChild(tr);
+      }
+    }
+  }
+
+  $('pauseBtn').addEventListener('click', async () => {
+    const paused = $('statusText').textContent === 'PAUSED';
+    await fetch(paused ? '/api/resume' : '/api/pause', { method: 'POST' });
+  });
+
+  connect();
+</script>
+</body>
+</html>

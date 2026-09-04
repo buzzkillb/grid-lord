@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.wallet.key
+wallet.key
+*.key
+.env
+.env.*
+!.env.example
+DS_Store
+
+# Runtime state (crash recovery snapshots)
+.botstate/

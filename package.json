@@ -1,0 +1,38 @@
+{
+  "name": "grid-lord",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Solana SOL/USDC grid + DCA trading bot with paper-trading engine and dashboard",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/bot.js",
+    "dev": "tsx watch src/bot.ts",
+    "paper": "tsx src/bot.ts",
+    "quote": "tsx src/quote-test.ts",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:live": "RUN_LIVE_TX_TESTS=1 node --import tsx --test test/live.test.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@jup-ag/api": "^6.0.0",
+    "@pump-fun/pump-swap-sdk": "^1.19.0",
+    "@solana/web3.js": "^1.95.0",
+    "@types/bs58": "^4.0.4",
+    "bs58": "^6.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.5.0",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
