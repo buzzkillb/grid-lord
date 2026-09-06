@@ -3,7 +3,7 @@ import type { StateStore } from './store.js';
 import { PriceOracle } from './price.js';
 import type { Broker } from './broker.js';
 import type { Order, Position } from './types.js';
-import { JupiterExec, assertLiveAllowed, dryRunEnabled } from './jupiter.js';
+import { JupiterExec, assertLiveAllowed, dryRunEnabled, cfgSolReserveSol } from './jupiter.js';
 import { buildPumpSwap } from './pumpSwap.js';
 import { Keypair } from '@solana/web3.js';
 
@@ -223,8 +223,13 @@ export class LiveBroker implements Broker {
         ? this.jup.nativeSolBalance(this.signer.publicKey)
         : this.jup.tokenBalance(this.signer.publicKey, inputMint)
       ).catch(() => 0);
+      // Native-SOL reserve: never sell below the standing fee buffer, so the
+      // wallet always has enough SOL to pay network fees and can keep trading
+      // indefinitely without re-funding. USDC keeps a small buffer for
+      // router/balance rounding. The full reserve is held back — sells can only
+      // use whatever SOL sits ABOVE the reserve.
       const safetyMargin =
-        inputMint === SOL_MINT ? 0.01 : inputMint === USDC_MINT ? 0.1 : 0;
+        inputMint === SOL_MINT ? cfgSolReserveSol() : inputMint === USDC_MINT ? 0.1 : 0;
       const available = inputBalance - safetyMargin;
       if (inAmount > available) {
         console.warn(

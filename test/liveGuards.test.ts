@@ -27,6 +27,9 @@ import type { Order } from '../src/types.js';
 
 process.env.NODE_ENV = 'test';
 process.env.TRADE_MODE = 'live';
+// Legacy tests below assumed a 0.01 SOL sell margin. Keep the reserve small for
+// those; the dedicated SOL-reserve test sets a real reserve explicitly.
+process.env.SOL_FEE_RESERVE_SOL = '0.01';
 // submitBuilt is fully stubbed below (no network), so dry-run must be OFF —
 // with it on, assertLiveAllowed throws at the top of executeSwap and none of
 // the guards under test would be reached. Restore defaults when done.
@@ -154,6 +157,31 @@ test('H1: zero-balance SELL sends nothing and releases the lock for retry', asyn
     false, 'lock released — order must stay retryable'
   );
   assert.equal(order.status, 'OPEN', 'order left OPEN');
+});
+
+test('SOL fee reserve: SOL is never sold below the standing fee buffer', async () => {
+  // Set a real reserve: keep ≥0.3 native SOL for fees. Wallet holds 0.8 SOL, so
+  // available to sell = 0.8 - 0.3 = 0.5; the sell must use 0.5 and leave 0.3.
+  process.env.SOL_FEE_RESERVE_SOL = '0.3';
+  try {
+    const stub: StubState = { balances: { SOL: 0.8, USDC: 500 }, impliedOutPerIn: 100, builds: 0, submits: 0 };
+    const { broker } = rig(stub);
+    const order = sellOrder(2.0); // wants to sell 2 SOL, but must keep the reserve
+
+    await (broker as unknown as { executeSwap(o: Order, s: 'BUY' | 'SELL'): Promise<void> })
+      .executeSwap(order, 'SELL');
+
+    assert.equal(stub.builds, 1, 'swap built with the reserved amount');
+    assert.equal(stub.submits, 1, 'swap submitted');
+    assert.equal(order.status, 'FILLED');
+    const t = (broker as unknown as { store: StateStore }).store.trades.at(-1);
+    assert.ok(t, 'trade recorded');
+    // Filled exactly the amount above the reserve (0.8 - 0.3 = 0.5), NOT the
+    // phantom 2 SOL, and NOT the whole 0.8 (that would eat the fee buffer).
+    assert.ok(Math.abs(t!.baseQty - 0.5) < 1e-9, `fill qty=${t!.baseQty} (expected 0.5 = 0.8 - 0.3 reserve)`);
+  } finally {
+    process.env.SOL_FEE_RESERVE_SOL = '0.01';
+  }
 });
 
 test('H2: quote deviating >3% from oracle is rejected, nothing sent, lock released', async () => {

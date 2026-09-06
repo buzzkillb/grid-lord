@@ -69,6 +69,21 @@ function cfgFeeFloorSol(): number {
 }
 
 /**
+ * Native-SOL reserve the bot ALWAYS keeps for network/priority fees and never
+ * sells below. The SOL/USDC strategies sell native SOL as their base inventory,
+ * and with a tiny 0.01 SOL margin they historically sold themselves down to
+ * ~0, leaving the wallet with no SOL to pay fees (the "native SOL too low for
+ * fees" stall). Raising this margin to a real reserve means the bot keeps a
+ * standing fee buffer and can keep buying/selling indefinitely without you
+ * topping up from another wallet. Clamped to [0, 10] SOL.
+ */
+export function cfgSolReserveSol(): number {
+  const v = Number(process.env.SOL_FEE_RESERVE_SOL);
+  if (Number.isFinite(v) && v >= 0) return Math.min(10, v);
+  return 0.1; // default: keep ≥0.1 native SOL (≈$10 at $106/SOL) for fees
+}
+
+/**
  * Jupiter execution layer (Swap API V2).
  *
  *  - `quote()`      -> GET /quote, used for pricing/slippage in both modes.
