@@ -63,6 +63,15 @@ export class StrategyEngine {
       this.broker = new PaperBroker(cfg, store, priceOracle);
     }
     this.grid = new GridStrategy(cfg, store, this.broker, priceOracle);
+    // CRASH RECOVERY: the store restores the order book from .botstate, and
+    // that includes historical FILLED orders. Their re-arms were already
+    // placed (and persisted) before the restart, so mark them handled now.
+    // Otherwise the first tick sees every restored fill as new and replays it
+    // through grid.onFill(), queuing pending re-arms keyed to stale fill
+    // prices that then fire against the freshly rebuilt ladder.
+    for (const o of store.orders) {
+      if (o.status !== 'OPEN') this.gridHandled.add(o.id);
+    }
     this.dca = new DcaStrategy(cfg, store, this.broker, priceOracle);
     // Self-contained meme strategies (one per config slot) — they own their own
     // real GeckoTerminal feed and ring-fenced budget. No SOL-path coupling here.
