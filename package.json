@@ -6,16 +6,16 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/bot.js",
-    "dev": "tsx watch src/bot.ts",
-    "paper": "tsx src/bot.ts",
+    "start": "node --experimental-detect-module dist/bot.js",
+    "dev": "tsx --experimental-detect-module watch src/bot.ts",
+    "paper": "tsx --experimental-detect-module src/bot.ts",
     "quote": "tsx src/quote-test.ts",
     "check": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts",
-    "test:live": "RUN_LIVE_TX_TESTS=1 node --import tsx --test test/live.test.ts"
+    "test": "node scripts/run-tests.mjs",
+    "test:live": "node scripts/run-tests.mjs --live"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   },
   "dependencies": {
     "@jup-ag/api": "^6.0.0",
