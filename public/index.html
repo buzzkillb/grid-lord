@@ -437,12 +437,23 @@
 
   const KIND_LABEL = { GRID_BUY:'GRID', GRID_SELL:'GRID', DCA_BUY:'DCA', DCA_SELL:'DCA-TP' };
 
+  // The pause button reflects BOT state, not CONNECTION state. Keying it off
+  // the status text/state relabelled a paused bot's button 'Pause' the moment
+  // the socket dropped, so the label disagreed with what a click would do.
+  // Falls back to the connection state only before the first snapshot lands.
+  function syncPauseBtn(fallbackPaused) {
+    const paused = lastSnapshot && lastSnapshot.risk
+      ? !!lastSnapshot.risk.paused
+      : !!fallbackPaused;
+    const btn = $('pauseBtn');
+    btn.textContent = paused ? 'Resume' : 'Pause';
+    btn.className = paused ? 'paused' : '';
+  }
+
   function setStatus(text, state) {
     $('statusDot').className = 'dot ' + (state === 'live' ? 'live' : state === 'paused' ? 'paused' : 'off');
     $('statusText').textContent = text;
-    const btn = $('pauseBtn');
-    btn.textContent = (state === 'paused') ? 'Resume' : 'Pause';
-    btn.className = (state === 'paused') ? 'paused' : '';
+    syncPauseBtn(state === 'paused');
   }
 
   document.querySelectorAll('#perfWinControls button').forEach((b) => {
@@ -816,7 +827,21 @@
 
   $('pauseBtn').addEventListener('click', async () => {
     const paused = !!(lastSnapshot && lastSnapshot.risk && lastSnapshot.risk.paused);
-    await fetch(paused ? '/api/resume' : '/api/pause', { method: 'POST' });
+    const btn = $('pauseBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(paused ? '/api/resume' : '/api/pause', { method: 'POST' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      // Reflect the new state now rather than waiting for the next snapshot,
+      // which never arrives while the socket is down.
+      if (lastSnapshot && lastSnapshot.risk) lastSnapshot.risk.paused = !paused;
+      syncPauseBtn(!paused);
+    } catch (e) {
+      // Without this an offline click raises an unhandled rejection.
+      console.warn('[dash] pause/resume failed: ' + (e && e.message));
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   connect();
