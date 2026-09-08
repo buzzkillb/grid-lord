@@ -141,6 +141,45 @@ export class StateStore extends EventEmitter {
     return Math.abs(total - (pos ? pos.baseQty : 0)) < 1e-6;
   }
 
+  /**
+   * Reconcile the grid/dca sub-book quantities down to the real on-chain
+   * position after a balance sync. Network/priority fees are paid from NATIVE
+   * SOL, so every swap burns a hair more SOL than the strategy books record,
+   * and the shrink-to-available path can also sell less than the book expected.
+   * Over a session those tiny gaps accumulate: the books drift above the chain
+   * balance (the dashboard's "held SOL" then overstates reality). This trims
+   * the excess proportionally between the books and books it as fees — the
+   * difference genuinely was fees — so sum(subBooks) === position.baseQty
+   * again (the H3 conservation invariant holds against on-chain truth).
+   * Returns the trimmed SOL (0 when already consistent). Never mints SOL back
+   * if the books understate the chain balance; the next fill reconciles that.
+   */
+  reconcileSubBooksToPosition(priceUsd: number): number {
+    const pos = this.getPosition('SOL', 'USDC');
+    if (!pos || !(priceUsd > 0)) return 0;
+    const g = this.strategies.grid.subBook;
+    const d = this.strategies.dca.subBook;
+    if (!g && !d) return 0;
+    const gq = g?.baseQty ?? 0;
+    const dq = d?.baseQty ?? 0;
+    const total = gq + dq;
+    const drift = total - pos.baseQty;
+    if (drift <= 1e-9 || total <= 0) return 0;
+    const trim = Math.min(drift, total);
+    const feeUsd = trim * priceUsd;
+    if (g && gq > 0) {
+      const share = gq / total;
+      g.baseQty -= trim * share;
+      g.feesPaidUsd += feeUsd * share;
+    }
+    if (d && dq > 0) {
+      const share = dq / total;
+      d.baseQty -= trim * share;
+      d.feesPaidUsd += feeUsd * share;
+    }
+    return trim;
+  }
+
   upsertOrder(order: Order): void {
     const i = this.orders.findIndex((o) => o.id === order.id);
     if (i >= 0) {

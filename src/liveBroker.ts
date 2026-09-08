@@ -144,6 +144,19 @@ export class LiveBroker implements Broker {
     pos.quoteQty = a.balances.USDC;
     a.openQty = a.balances.SOL;
     pos.avgCostPerBase = pos.avgCostPerBase > 0 ? pos.avgCostPerBase : (price > 0 ? price : 0);
+    // Keep the per-strategy books honest against the chain: the residual gap
+    // (native-SOL network fees + shrink-to-available sells) accumulates over a
+    // session as books-drift-above-chain. Reconcile each poll, in tiny steps,
+    // so the dashboard never shows phantom SOL.
+    if (price > 0) {
+      const trim = this.store.reconcileSubBooksToPosition(price);
+      if (trim > 0.001) {
+        console.log(
+          `[live] books reconciled to chain: -${trim.toFixed(4)} SOL phantom ` +
+          `(native-SOL fees), now held=${pos.baseQty.toFixed(4)}`
+        );
+      }
+    }
   }
 
   /** Which side's input is the base (SOL) mint for a given strategy. */
