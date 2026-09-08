@@ -489,7 +489,7 @@
     // "24h" change under the price tile is the REAL 24h price change from the
     // oracle's 24h-ago sample — never equity growth (deposits made that read
     // as a fake +214%). price24hAgo is 0 until the bot has a full 24h of data.
-    const p24 = m.price24hAgo || 0;
+    const p24 = (s.market && s.market.price24hAgo) || 0;
     if (p24 > 0 && s.price > 0) {
       const chg = ((s.price - p24) / p24) * 100;
       $('ovChg').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% (24h)';
