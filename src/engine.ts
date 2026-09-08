@@ -226,11 +226,12 @@ export class StrategyEngine {
   }
 
   /** Build the market-context object the dashboard uses (VWAP + 24h range). */
-  private marketContext(): { vwap: number; high24h: number; low24h: number } {
+  private marketContext(): { vwap: number; high24h: number; low24h: number; price24hAgo: number } {
     return {
       vwap: this.priceOracle.vwap,
       high24h: this.priceOracle.recentHigh(24 * 60),
       low24h: this.priceOracle.recentLow(24 * 60),
+      price24hAgo: this.priceOracle.price24hAgo(),
     };
   }
 

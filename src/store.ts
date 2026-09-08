@@ -54,7 +54,7 @@ export class StateStore extends EventEmitter {
   private bandInside = 0;
   /** Last real market context from the engine, so REST/plain snapshots also
    *  surface live VWAP + 24h range instead of falling back to zeros. */
-  private lastMarket: { vwap: number; high24h: number; low24h: number };
+  private lastMarket: { vwap: number; high24h: number; low24h: number; price24hAgo: number };
 
   constructor(private cfg: AppConfig) {
     super();
@@ -67,7 +67,7 @@ export class StateStore extends EventEmitter {
       openQty: 0,
       vwap: 0,
     };
-    this.lastMarket = { vwap: 0, high24h: 0, low24h: 0 };
+    this.lastMarket = { vwap: 0, high24h: 0, low24h: 0, price24hAgo: 0 };
     this.strategies = {
       grid: {
         enabled: cfg.strategies.grid.enabled,
@@ -242,13 +242,14 @@ export class StateStore extends EventEmitter {
   /** Build and emit a full snapshot for the dashboard. */
   snapshot(
     cfg: AppConfig,
-    market: { vwap: number; high24h: number; low24h: number } = { vwap: 0, high24h: 0, low24h: 0 }
+    market: { vwap: number; high24h: number; low24h: number; price24hAgo: number } = { vwap: 0, high24h: 0, low24h: 0, price24hAgo: 0 }
   ): Snapshot {
     // Persist the latest real market context; when called without one (REST),
     // fall back to the most recent real values rather than zeros.
     if (market.vwap) this.lastMarket.vwap = market.vwap;
     if (market.high24h) this.lastMarket.high24h = market.high24h;
     if (market.low24h) this.lastMarket.low24h = market.low24h;
+    if (market.price24hAgo) this.lastMarket.price24hAgo = market.price24hAgo;
     market = { ...this.lastMarket };
     this.account.vwap = market.vwap || this.account.vwap;
     const s: Snapshot = {

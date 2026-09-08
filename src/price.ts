@@ -95,6 +95,24 @@ export class PriceOracle extends EventEmitter {
   }
 
   /**
+   * The price ~24 hours ago: the OPEN of the oldest candle still inside the
+   * 24h window. Returns 0 when the bot hasn't been running long enough to
+   * have 24h of samples (dashboard then shows '—' rather than a lie).
+   */
+  price24hAgo(): number {
+    const cutoff = Date.now() - 24 * 60 * 60_000;
+    const src = this.history.length ? this.history : this.candles;
+    if (src.length === 0) return 0;
+    // Only honest as a "24h ago" read when the series actually starts at or
+    // before the 24h edge; the 30min slack tolerates the last refresh landing
+    // slightly inside the window.
+    if (src[0].ts > cutoff + 30 * 60_000) return 0;
+    const inWindow = src.find((c) => c.ts >= cutoff);
+    if (!inWindow) return 0;
+    return inWindow.open > 0 ? inWindow.open : inWindow.close;
+  }
+
+  /**
    * Highest price seen over the last `minutes` of on-chain DEX history.
    * Falls back to live candles, then a cushion around the current price.
    */

@@ -233,6 +233,8 @@ export interface Snapshot {
     vwap: number;
     high24h: number;
     low24h: number;
+    /** SOL price ~24h ago (0 = not enough history yet). */
+    price24hAgo: number;
   };
   risk: {
     maxUsdcPosition: number;

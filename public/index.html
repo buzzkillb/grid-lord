@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>sol-grid-bot · command center</title>
+<title>grid-lord · command center</title>
 <style>
   :root {
     --bg: #05060a;
@@ -486,14 +486,14 @@
     $('ovUnreal').className = 'value num ' + pnlCls(unreal);
     $('ovUnrealSub').textContent = 'open basket vs avg cost';
 
-    if (s.equityHistory && s.equityHistory.length > 1) {
-      const first = s.equityHistory[0].equityUsd;
-      const lastEq = s.equityHistory[s.equityHistory.length-1].equityUsd;
-      if (first > 0) {
-        const chg = ((lastEq - first)/first)*100;
-        $('ovChg').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% (24h)';
-        $('ovChg').className = pnlCls(chg);
-      }
+    // "24h" change under the price tile is the REAL 24h price change from the
+    // oracle's 24h-ago sample — never equity growth (deposits made that read
+    // as a fake +214%). price24hAgo is 0 until the bot has a full 24h of data.
+    const p24 = m.price24hAgo || 0;
+    if (p24 > 0 && s.price > 0) {
+      const chg = ((s.price - p24) / p24) * 100;
+      $('ovChg').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% (24h)';
+      $('ovChg').className = pnlCls(chg);
     } else $('ovChg').textContent = '—';
 
     const pos = Object.values(a.positions)[0];
