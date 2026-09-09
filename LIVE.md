@@ -101,13 +101,13 @@ chmod 600 wallet.key
 
 # 3. (Recommended) First run in live mode WITHOUT LIVE_ARM to dry-run:
 npm run build
-LIVE_ARM= node dist/bot.js
+LIVE_ARM= npm start
 #    -> logs "LIVE mode but DRY-RUN: swaps built+validated, NOT sent"
 
 # 4. Verify wallet pubkey + balances on-chain match what you expect,
 #    then do a SMALL first trade with:
 npm run build
-LIVE_ARM=1 node dist/bot.js
+LIVE_ARM=1 npm start
 ```
 
 ## Kill-switch

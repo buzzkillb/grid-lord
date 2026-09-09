@@ -39,7 +39,7 @@ cannot trigger a fake fill or re-center the grid on a bogus price.
 
 ## Requirements
 
-- Node.js 18 or newer
+- Node.js 20.10 or newer (22.12 or newer to run the compiled build with `npm start`, because a dependency of `@solana/web3.js` needs `require()` of ES modules)
 - Local npm and network access to the public Solana RPC and Jupiter API
 
 ## How pricing works
@@ -114,6 +114,8 @@ swaps but never sends them.
 ```bash
 LIVE_ARM=1 npm run paper
 ```
+
+On Windows PowerShell, set the variable first: `$env:LIVE_ARM="1"; npm run paper`.
 
 The full go-live procedure, including how to fund the wallet (USDC for buys,
 native SOL for fees) and a description of every runtime safety gate, is in
