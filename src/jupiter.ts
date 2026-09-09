@@ -80,7 +80,7 @@ function cfgFeeFloorSol(): number {
 export function cfgSolReserveSol(): number {
   const v = Number(process.env.SOL_FEE_RESERVE_SOL);
   if (Number.isFinite(v) && v >= 0) return Math.min(10, v);
-  return 0.1; // default: keep ≥0.1 native SOL (≈$10 at $106/SOL) for fees
+  return 1.0; // default: keep >=1.0 native SOL for fees (matches .env.example)
 }
 
 /**

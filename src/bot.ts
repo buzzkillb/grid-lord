@@ -49,7 +49,7 @@ async function main(): Promise<void> {
         console.log(`     DCA budget  : ~${w.derived.dcaBudgetUsd.toFixed(0)} (target ${cfg.strategies.dca.vaTargetSol.toFixed(2)} SOL)`);
         const m0 = cfg.strategies.memes[0];
         if (m0) console.log(`     ${m0.id.toUpperCase()} cap    : ${cfg.strategies.memes[0].maxUsdcPosition}`);
-        console.log(`     hard-stop ref: ${cfg.risk.maxUsdcPosition} (25% = -${(cfg.risk.maxUsdcPosition * 0.25).toFixed(0)})`);
+        console.log(`     hard-stop ref: ${cfg.risk.maxUsdcPosition} (${(cfg.risk.hardStopPct * 100).toFixed(0)}% = -${(cfg.risk.maxUsdcPosition * cfg.risk.hardStopPct).toFixed(0)})`);
         console.log('   ──────────────────────────────────────────────');
       } catch (e) {
         console.warn(
@@ -82,9 +82,11 @@ async function main(): Promise<void> {
     console.log(`   Dashboard: http://localhost:${PORT}`);
   });
 
-  // Kick off the engine (runs its own poll loop)
+  // Kick off the engine (runs its own poll loop) and the oracle timers
+  // (price poll + GeckoTerminal history refresh; without start() the history
+  // stays empty so 24h range / VWAP / price24hAgo never populate).
   engine.start();
-  await priceOracle.fetchNow();
+  priceOracle.start();
 
   const shutdown = () => {
     console.log('\nShutting down...');

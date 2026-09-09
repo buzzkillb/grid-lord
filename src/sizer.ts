@@ -35,12 +35,12 @@ const envNum = (k: string, f: number): number => {
  * the hard-stop reference) before the strategies build, then returns the
  * snapshot for a startup report.
  *
- * Config (env), all as % of total equity by default:
+ * Config (env), all as % of total equity by default (match .env.example):
  *   WALLET_AUTO_SIZE  "1"|"0"     enable wallet-derived sizing (default ON in live)
- *   GRID_ALLOC_PCT    15          active SOL-grid notional
- *   DCA_ALLOC_PCT     35          total DCA deployment budget
+ *   GRID_ALLOC_PCT    30          active SOL-grid notional
+ *   DCA_ALLOC_PCT     50          total DCA deployment budget
  *   CYB_ALLOC_PCT     10          CYB ring-fence cap
- *   WALLET_RESERVE_PCT 40         idle buffer (kept out of active books)
+ *   WALLET_RESERVE_PCT 10         idle buffer (kept out of active books)
  *   USDC_MIN_RESERVE  30          minimum USDC kept un-deployed (hard floor)
  */
 export class WalletSizer {
@@ -55,11 +55,12 @@ export class WalletSizer {
   async snapshot(signer: Keypair): Promise<WalletSnapshot> {
     const g = this.cfg.strategies.grid;
 
-    // Load config-driven percentages (defaults sum grid+dca+cyb = 60%).
-    const gridPct = envNum('GRID_ALLOC_PCT', 15) / 100;
-    const dcaPct = envNum('DCA_ALLOC_PCT', 35) / 100;
+    // Load config-driven percentages (defaults match .env.example; grid+dca+cyb
+    // = 90%, reserve 10% -> deployment cap aligns with the allocation total).
+    const gridPct = envNum('GRID_ALLOC_PCT', 30) / 100;
+    const dcaPct = envNum('DCA_ALLOC_PCT', 50) / 100;
     const cybPct = envNum('CYB_ALLOC_PCT', 10) / 100;
-    const reservePct = envNum('WALLET_RESERVE_PCT', 40) / 100;
+    const reservePct = envNum('WALLET_RESERVE_PCT', 10) / 100;
     const usdcMinReserve = envNum('USDC_MIN_RESERVE', 30);
 
     // Native lamports, not the wSOL SPL account (see nativeSolBalance).
@@ -132,7 +133,7 @@ export class WalletSizer {
    * (re-sized orders, re-anchored bands) for no reason. Re-deriving budgets is
    * only meaningful when the WALLET actually changed: a deposit, a withdrawal,
    * or accumulated PnL. So re-apply only when equity moved more than
-   * RESIZE_HYSTERESIS_PCT (default 10%) since the last applied snapshot;
+   * RESIZE_HYSTERESIS_PCT (default 5%) since the last applied snapshot;
    * returns null when skipped so the caller can stay quiet.
    */
   async applyWithHysteresis(signer: Keypair): Promise<WalletSnapshot | null> {
@@ -149,6 +150,6 @@ export class WalletSizer {
   private lastAppliedEquityUsd?: number;
   private static readonly RESIZE_HYSTERESIS_PCT = (() => {
     const v = Number(process.env.WALLET_RESIZE_HYSTERESIS_PCT);
-    return Number.isFinite(v) && v > 0 && v < 1 ? v : 0.1;
+    return Number.isFinite(v) && v > 0 && v < 1 ? v : 0.05;
   })();
 }

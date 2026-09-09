@@ -79,21 +79,21 @@ test('sizer derives all budgets from real equity and mutates every book', async 
 
   assert.ok(Math.abs(w.totalUsd - 1710) < 0.01, `equity=${w.totalUsd}`);
 
-  // Grid: 15% of equity over 8 levels.
-  assert.ok(Math.abs(c.strategies.grid.usdcPerGrid - Math.round(1710 * 0.15 / 8)) < 1,
+  // Grid: 30% of equity over 8 levels (defaults match .env.example).
+  assert.ok(Math.abs(c.strategies.grid.usdcPerGrid - Math.round(1710 * 0.30 / 8)) < 1,
     `grid/level=${c.strategies.grid.usdcPerGrid}`);
-  // DCA per-buy: 35% budget spread over the 30-buy horizon (was hardcoded 10).
-  const dcaPerBuy = 1710 * 0.35 / 30;
+  // DCA per-buy: 50% budget spread over the 30-buy horizon (was hardcoded 10).
+  const dcaPerBuy = 1710 * 0.50 / 30;
   assert.ok(Math.abs(c.strategies.dca.usdcAmountPerBuy - dcaPerBuy) < 0.02,
     `dca/buy=${c.strategies.dca.usdcAmountPerBuy} expected ~${dcaPerBuy.toFixed(2)}`);
   // DCA VA target = budget / SOL price / 2.
-  assert.ok(Math.abs(c.strategies.dca.vaTargetSol - (1710 * 0.35) / 105 / 2) < 0.01,
+  assert.ok(Math.abs(c.strategies.dca.vaTargetSol - (1710 * 0.50) / 105 / 2) < 0.01,
     `vaTarget=${c.strategies.dca.vaTargetSol}`);
   // CYB cap: 10% of equity (was 200).
   assert.equal(c.strategies.memes[0].maxUsdcPosition, Math.round(171),
     `cyb cap=${c.strategies.memes[0].maxUsdcPosition}`);
-  // Hard-stop reference: 60% deployable (40% reserve), NOT the raw .env 400.
-  assert.equal(c.risk.maxUsdcPosition, Math.round(1710 * 0.6),
+  // Hard-stop reference: 90% deployable (10% reserve), NOT the raw .env 400.
+  assert.equal(c.risk.maxUsdcPosition, Math.round(1710 * 0.9),
     `hard-stop ref=${c.risk.maxUsdcPosition}`);
 });
 
@@ -107,7 +107,7 @@ test('hysteresis: price wobble does NOT rescale; a real deposit DOES', async () 
   const dcaAfterStart = c.strategies.dca.usdcAmountPerBuy;
 
   // SOL rallies 8% ($105 -> $113.40): equity +~1.4% (2 SOL of $1,710).
-  // Under the 10% hysteresis threshold -> budgets must NOT be rewritten.
+  // Under the 5% hysteresis threshold -> budgets must NOT be rewritten.
   bal.solUsd = 113.40;
   const wobbled = await sizer.applyWithHysteresis(signer);
   assert.equal(wobbled, null, 'price wobble under threshold must be skipped');
