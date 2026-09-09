@@ -196,7 +196,7 @@
     <div class="logo">◈</div>
     <div>
       <h1>sol-grid-bot</h1>
-      <div class="tag">Live command center</div>
+      <div class="tag">Command center</div>
     </div>
     <span class="mode" id="modeBadge">paper</span>
   </div>
@@ -437,12 +437,23 @@
 
   const KIND_LABEL = { GRID_BUY:'GRID', GRID_SELL:'GRID', DCA_BUY:'DCA', DCA_SELL:'DCA-TP' };
 
+  // The pause button reflects BOT state, not CONNECTION state. Keying it off
+  // the status text/state relabelled a paused bot's button 'Pause' the moment
+  // the socket dropped, so the label disagreed with what a click would do.
+  // Falls back to the connection state only before the first snapshot lands.
+  function syncPauseBtn(fallbackPaused) {
+    const paused = lastSnapshot && lastSnapshot.risk
+      ? !!lastSnapshot.risk.paused
+      : !!fallbackPaused;
+    const btn = $('pauseBtn');
+    btn.textContent = paused ? 'Resume' : 'Pause';
+    btn.className = paused ? 'paused' : '';
+  }
+
   function setStatus(text, state) {
     $('statusDot').className = 'dot ' + (state === 'live' ? 'live' : state === 'paused' ? 'paused' : 'off');
     $('statusText').textContent = text;
-    const btn = $('pauseBtn');
-    btn.textContent = (state === 'paused') ? 'Resume' : 'Pause';
-    btn.className = (state === 'paused') ? 'paused' : '';
+    syncPauseBtn(state === 'paused');
   }
 
   document.querySelectorAll('#perfWinControls button').forEach((b) => {
@@ -523,7 +534,7 @@
     if (band && band.upper > 0) {
       $('riskBand').textContent = (band.insidePct*100).toFixed(1) + '% in band';
     } else $('riskBand').textContent = '—';
-    $('riskStatus').textContent = s.risk.paused ? 'PAUSED' : 'LIVE';
+    $('riskStatus').textContent = s.risk.paused ? 'PAUSED' : s.mode === 'live' ? 'LIVE' : 'RUNNING';
     $('riskStatus').className = s.risk.paused ? 'neg' : 'pos';
     $('riskNote').innerHTML = s.risk.pauseReason
       ? `<div style="margin-top:8px;font-size:12px;color:var(--amber)">⚠ ${s.risk.pauseReason}</div>` : '';
@@ -536,16 +547,6 @@
       $('bandPct').className = band.insidePct > 0.5 ? 'pos' : 'neg';
       $('bandOcc').textContent = 'occupancy';
     } else { $('bandLower').textContent = $('bandUpper').textContent = $('bandSamples').textContent = '—'; }
-
-    renderEquity(s);
-    renderAlloc(s);
-    renderPerfStats(s);
-    renderGrid(s);
-    renderDca(s);
-    renderOrders(s);
-    renderTrades(s);
-    renderPerf(s);
-    renderMemes(s);
 
     // Each panel is defensive: if one painter throws (e.g. an unexpected null
     // in a new field), the others still render instead of the whole frame
@@ -698,7 +699,7 @@
     $('dcaAvg').textContent = (d.subBook && d.subBook.avgCostPerBase) ? '$' + fmt(d.subBook.avgCostPerBase,2) : '—';
     $('dcaHeld').textContent = (d.subBook && d.subBook.baseQty) ? fmt(d.subBook.baseQty,4) + ' SOL' : '—';
     $('dcaPeak').textContent = d.peakPrice ? '$' + fmt(d.peakPrice,2) : '—';
-    $('dcaTp').textContent = d.lastTpAt ? 'armed' : '—';
+    $('dcaTp').textContent = d.tpArmed ? 'armed' : '—';
   }
 
   function renderOrders(s) {
@@ -825,8 +826,22 @@
   }
 
   $('pauseBtn').addEventListener('click', async () => {
-    const paused = $('statusText').textContent === 'PAUSED';
-    await fetch(paused ? '/api/resume' : '/api/pause', { method: 'POST' });
+    const paused = !!(lastSnapshot && lastSnapshot.risk && lastSnapshot.risk.paused);
+    const btn = $('pauseBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(paused ? '/api/resume' : '/api/pause', { method: 'POST' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      // Reflect the new state now rather than waiting for the next snapshot,
+      // which never arrives while the socket is down.
+      if (lastSnapshot && lastSnapshot.risk) lastSnapshot.risk.paused = !paused;
+      syncPauseBtn(!paused);
+    } catch (e) {
+      // Without this an offline click raises an unhandled rejection.
+      console.warn('[dash] pause/resume failed: ' + (e && e.message));
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   connect();
