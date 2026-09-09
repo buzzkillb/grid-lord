@@ -285,10 +285,12 @@ export class GridStrategy {
   private buildLadder(anchor: number, lo: number, hi: number): void {
     const minStep = this.broker.minProfitStepUsd(anchor);
     const n = this.levelCount();
-    const k = (() => {
-      const v = Number(process.env.GRID_LADDER_WEIGHT_K);
-      return Number.isFinite(v) && v >= 0 && v <= 3 ? v : 0.12;
-    })();
+    // Ladder-weight K with the same fallback the config layer applies when the
+    // env var is absent/invalid (hand-built test configs may omit the field).
+    const kRaw = this.cfg.strategies.grid.ladderWeightK;
+    const k = Number.isFinite(kRaw) && (kRaw as number) >= 0 && (kRaw as number) <= 3
+      ? (kRaw as number)
+      : 0.12;
 
     // M gaps per side from the anchor; arithmetic growth factor per rank.
     const M = Math.max(1, Math.floor(n / 2));

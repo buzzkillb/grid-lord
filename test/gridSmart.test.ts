@@ -35,6 +35,7 @@ const strategies: StrategyConfig = {
     lowerPrice: 99, upperPrice: 115, numLevels: 8, usdcPerGrid: 32,
     enabled: true, historyHours: 48, reanchorMinutes: 5, deadzoneSteps: 0.5,
     compoundPct: 1.0, volSizingEnabled: false, vwapSkewEnabled: false, skewStrength: 2.0,
+    ladderWeightK: 0.12,
   },
   dca: {
     baseAsset: 'SOL', quoteAsset: 'USDC', baseMint: SOL, quoteMint: USDC,
@@ -112,6 +113,9 @@ test('A: K=0 reproduces the even ladder', () => {
   process.env.GRID_LADDER_WEIGHT_K = '0';
   try {
     const { store, grid } = rig(105);
+    // K comes from config now; the rig builds config before this env var is
+    // read, so override the field directly for this test.
+    (grid as unknown as { cfg: AppConfig }).cfg.strategies.grid.ladderWeightK = 0;
     grid.initialize();
     const prices = store.strategies.grid.levels.map((l) => l.price).sort((a, b) => a - b);
     const gaps: number[] = [];

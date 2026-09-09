@@ -53,6 +53,9 @@ export interface GridConfig {
    *  and away from levels ABOVE VWAP (don't over-buy strength). */
   vwapSkewEnabled: boolean;
   skewStrength: number;
+  /** Anchor-weighted ladder growth factor (GRID_LADDER_WEIGHT_K, 0 = even).
+   *  Optional so hand-built test configs stay valid; loadConfig always sets it. */
+  ladderWeightK?: number;
 }
 
 export interface DcaConfig {
@@ -223,6 +226,7 @@ export function loadConfig(): AppConfig {
         volSizingEnabled: envBool('GRID_VOL_SIZING', true),
         vwapSkewEnabled: envBool('GRID_VWAP_SKEW', true),
         skewStrength: envNumber('GRID_SKEW_STRENGTH', 0.35, 0, 10),
+        ladderWeightK: envNumber('GRID_LADDER_WEIGHT_K', 0.12, 0, 3),
       },
       dca: {
         baseAsset: 'SOL',
