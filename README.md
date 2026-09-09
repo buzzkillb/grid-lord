@@ -96,6 +96,7 @@ Key settings:
 | `RISK_MAX_USDC` | `400` | Hard cap on deployed grid + DCA capital |
 | `RISK_HARD_STOP_PCT` | `0.25` | Pause if realized PnL drops this % of the cap |
 | `RISK_MAX_SINGLE_JUMP_PCT` | `0.05` | Reject a single-poll price move larger than this fraction |
+| `SOL_FEE_RESERVE_SOL` | `1.0` | Native SOL held back from sells to cover network fees |
 | `PORT` | `3000` | Dashboard port |
 
 The `.env` and `wallet.key` files are git-ignored. Only `.env.example` is
@@ -142,8 +143,9 @@ native SOL for fees) and a description of every runtime safety gate, is in
 
 The test suite covers the important invariants: asset conservation, the grid
 never deploying past its capital cap, the one-order-per-level rule, the
-take-profit sell never closing below the cost basis, the price sanity gate, and
-the re-anchor confirmation log. Run it with `npm test`.
+take-profit sell never closing below the cost basis, the price sanity gate,
+re-anchor confirmation, the fee reserve, the no-replay rule after a restart,
+and the 24h window used by the dashboard header. Run it with `npm test`.
 
 ```bash
 npm install
