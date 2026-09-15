@@ -484,6 +484,13 @@ let DRY_RUN = true;
 export function killLiveExecution(): void {
   KILL_SWITCH = true;
 }
+/** Self-heal: the auto circuit-breaker clears itself once a fresh price arrives. */
+export function clearLiveExecution(): void {
+  if (KILL_SWITCH) {
+    KILL_SWITCH = false;
+    console.log('[risk] circuit-breaker cleared: price feed fresh again; resuming live swaps');
+  }
+}
 export function liveExecutionKilled(): boolean {
   return KILL_SWITCH;
 }

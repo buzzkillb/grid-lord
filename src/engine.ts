@@ -8,7 +8,7 @@ import { DcaStrategy } from './dcaStrategy.js';
 
 import { MemeStrategy } from './meme.js';
 import { WalletSizer } from './sizer.js';
-import { JupiterExec, killLiveExecution, liveExecutionKilled, dryRunEnabled } from './jupiter.js';
+import { JupiterExec, killLiveExecution, clearLiveExecution, liveExecutionKilled, dryRunEnabled } from './jupiter.js';
 import { notify } from './notify.js';
 import type { Keypair } from '@solana/web3.js';
 
@@ -180,6 +180,9 @@ export class StrategyEngine {
       }
     } else {
       this.stalePolls = 0;
+      // SELF-HEAL: the circuit-breaker is a soft latch — once the execution
+      // venue reports fresh again, resume live swaps without a process restart.
+      clearLiveExecution();
     }
 
     // Initialize grid once we have a price

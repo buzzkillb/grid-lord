@@ -7,7 +7,7 @@ import { StateStore } from '../src/store.js';
 import { PriceOracle } from '../src/price.js';
 import { LiveBroker } from '../src/liveBroker.js';
 import {
-  JupiterExec, assertLiveAllowed, killLiveExecution, setDryRun,
+  JupiterExec, assertLiveAllowed, killLiveExecution, clearLiveExecution, setDryRun,
   resetLiveGuards, lookupTablesFromSwapResponse, type BuiltSwap,
 } from '../src/jupiter.js';
 import type { Order } from '../src/types.js';
@@ -91,6 +91,20 @@ test('assertLiveAllowed refuses live when kill-switch is armed', () => {
   setDryRun(false);
   killLiveExecution();
   assert.throws(() => assertLiveAllowed(cfg('live')), /KILL-SWITCH/);
+});
+
+test('clearLiveExecution self-heals the armed kill-switch without a restart', () => {
+  setDryRun(false);
+  killLiveExecution();
+  assert.throws(() => assertLiveAllowed(cfg('live')), /KILL-SWITCH/);
+  clearLiveExecution();
+  assert.equal(assertLiveAllowed(cfg('live')), undefined); // resumed
+});
+
+test('clearLiveExecution is a no-op when nothing was armed', () => {
+  setDryRun(false);
+  assert.doesNotThrow(() => clearLiveExecution());
+  assert.equal(assertLiveAllowed(cfg('live')), undefined);
 });
 
 test('assertLiveAllowed passes ONLY with live + dry-run off + no kill-switch', () => {
