@@ -6,6 +6,7 @@ import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { AppConfig } from './config.js';
 import type { StateStore } from './store.js';
+import { HistoryStore } from './history.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
@@ -13,6 +14,8 @@ const PUBLIC_DIR = path.resolve(__dirname, '../public');
 export interface DashboardServerOptions {
   cfg: AppConfig;
   store: StateStore;
+  /** Shared daily-history store (SOL book) for the History tab. */
+  history: HistoryStore;
   port: number;
 }
 
@@ -31,6 +34,11 @@ export class DashboardServer {
     // REST: full snapshot
     this.app.get('/api/state', (_req, res) => {
       res.json(this.opts.store.snapshot(this.opts.cfg));
+    });
+
+    // REST: daily history rollups for the History tab (SOL book, all tiers).
+    this.app.get('/api/history', (_req, res) => {
+      res.json({ days: this.opts.history.rows() });
     });
 
     // REST: pause/resume

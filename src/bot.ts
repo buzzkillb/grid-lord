@@ -6,6 +6,7 @@ import { DashboardServer } from './server.js';
 import { loadKeypair, pubkeyString } from './wallet.js';
 import { liveExecutionKilled, setDryRun, JupiterExec } from './jupiter.js';
 import { WalletSizer } from './sizer.js';
+import { HistoryStore } from './history.js';
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -76,8 +77,17 @@ async function main(): Promise<void> {
     console.warn(msg);
   });
 
-  // Dashboard
-  const dashboard = new DashboardServer({ cfg, store, port: PORT });
+  // Dashboard + long-memory daily history (SOL book)
+  const history = new HistoryStore();
+  // Seed today's rollup immediately so the History tab is populated on start,
+  // then refresh it on every store snapshot (poll cadence, measurement only).
+  history.update(store.trades, store.equityHistory, store.price);
+  store.on('snapshot', () => {
+    try {
+      history.update(store.trades, store.equityHistory, store.price);
+    } catch { /* measurement only — never crash the loop */ }
+  });
+  const dashboard = new DashboardServer({ cfg, store, history, port: PORT });
   dashboard.start(() => {
     console.log(`   Dashboard: http://localhost:${PORT}`);
   });

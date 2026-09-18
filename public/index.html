@@ -212,6 +212,7 @@
     <div class="tab active" data-tab="overview">Overview</div>
     <div class="tab" data-tab="sol">SOL Book</div>
     <div class="tab" data-tab="memes">Memes</div>
+    <div class="tab" data-tab="history">History</div>
   </div>
 
   <!-- ============ OVERVIEW ============ -->
@@ -382,6 +383,41 @@
     </div>
   </div>
   <!-- /memes -->
+  <!-- ============ HISTORY ============ -->
+  <div class="tab-panel" id="panel-history">
+    <div class="section">
+      <h2>Daily Performance <span class="muted">(SOL book: grid + DCA)</span></h2>
+      <div class="seg" id="histRange" style="margin-bottom:10px">
+        <button class="seg-btn active" data-hrange="day">Day</button>
+        <button class="seg-btn" data-hrange="week">Week</button>
+        <button class="seg-btn" data-hrange="month">Month</button>
+        <button class="seg-btn" data-hrange="year">Year</button>
+      </div>
+      <div class="statline" id="histStats">
+        <span>Realized <b id="hsRealized">-</b></span>
+        <span>Fees <b id="hsFees">-</b></span>
+        <span>Net <b id="hsNet">-</b></span>
+        <span>Win rate <b id="hsWin">-</b></span>
+        <span>Profit factor <b id="hsPf">-</b></span>
+        <span>Round-trips <b id="hsRt">-</b></span>
+        <span>Best day <b id="hsBest">-</b></span>
+        <span>Worst day <b id="hsWorst">-</b></span>
+        <span>Fee % of gross <b id="hsFeePct">-</b></span>
+      </div>
+      <svg id="histPnlChart" viewBox="0 0 820 220" preserveAspectRatio="none" style="width:100%;height:210px;display:block;margin-top:8px"></svg>
+      <div class="muted" style="font-size:11px;margin-top:2px">Bars: net PnL per period. Green above zero, red below. Hover a bar for details.</div>
+    </div>
+    <div class="section">
+      <h2>Equity <span class="muted">end of each UTC day</span></h2>
+      <svg id="histEquityChart" viewBox="0 0 820 200" preserveAspectRatio="none" style="width:100%;height:190px;display:block"></svg>
+      <div class="muted" style="font-size:11px;margin-top:2px">End-of-day net worth (USDC + SOL at market). A jump with no matching PnL is a deposit/withdrawal.</div>
+      <table style="margin-top:12px">
+        <thead><tr><th>Day</th><th>Net PnL</th><th>Realized</th><th>Fees</th><th>Round-trips</th><th>Fills</th><th>Win rate</th><th>PF</th><th>Equity EOD</th><th>Price EOD</th></tr></thead>
+        <tbody id="histTable"></tbody>
+      </table>
+      <div class="muted" style="font-size:11px;margin-top:6px">One row per UTC day, persisted to .botstate/history-sol.json and kept forever.</div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -843,6 +879,182 @@
       btn.disabled = false;
     }
   });
+
+
+  // ==================== HISTORY TAB ====================
+  let histRows = [];
+  let histRange = 'day';
+
+  function bucketKey(day, range) {
+    if (range === 'day') return day;
+    const d = new Date(day + 'T00:00:00Z');
+    if (range === 'week') {
+      const dow = (d.getUTCDay() + 6) % 7;
+      d.setUTCDate(d.getUTCDate() - dow);
+      return d.toISOString().slice(0, 10);
+    }
+    if (range === 'month') return day.slice(0, 7);
+    return day.slice(0, 4);
+  }
+
+  function aggregate(rows, range) {
+    const map = new Map();
+    for (const r of rows) {
+      const k = bucketKey(r.day, range);
+      if (!map.has(k)) map.set(k, { key: k, realized: 0, fees: 0, net: 0, fills: 0,
+        roundTrips: 0, sells: 0, wins: 0, sumWins: 0, sumLosses: 0, equityEod: null, priceEod: null, days: 0 });
+      const b = map.get(k);
+      b.realized += r.realizedUsd || 0; b.fees += r.feesUsd || 0; b.net += r.netUsd || 0;
+      b.fills += r.fills || 0; b.roundTrips += r.roundTrips || 0; b.days++;
+      b.sells += r.sells || 0; b.wins += r.wins || 0;
+      b.sumWins += r.sumWins || 0; b.sumLosses += r.sumLosses || 0;
+      if (r.equityEod != null) b.equityEod = r.equityEod;
+      if (r.priceEod != null) b.priceEod = r.priceEod;
+    }
+    for (const b of map.values()) {
+      b.winRate = b.sells ? b.wins / b.sells : 0;
+      b.pf = b.sumLosses < 0 ? b.sumWins / Math.abs(b.sumLosses) : (b.sumWins > 0 ? null : 0);
+    }
+    return [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  function histBarChart(svg, buckets) {
+    svg.innerHTML = '';
+    if (!buckets.length) return;
+    const W = 820, H = 220, pad = 34;
+    const maxAbs = Math.max(1e-6, ...buckets.map((b) => Math.abs(b.net)));
+    const zero = pad + (H - 2 * pad) / 2;
+    const bw = Math.max(2, (W - 2 * pad) / buckets.length - 1);
+    const ns = 'http://www.w3.org/2000/svg';
+    const zl = document.createElementNS(ns, 'line');
+    zl.setAttribute('x1', pad); zl.setAttribute('x2', W - pad);
+    zl.setAttribute('y1', zero); zl.setAttribute('y2', zero);
+    zl.setAttribute('stroke', 'var(--dim)'); zl.setAttribute('stroke-dasharray', '3,3');
+    svg.appendChild(zl);
+    buckets.forEach((b, i) => {
+      const h = Math.max(1, (Math.abs(b.net) / (2 * maxAbs)) * (H - 2 * pad));
+      const x = pad + i * ((W - 2 * pad) / buckets.length);
+      const rect = document.createElementNS(ns, 'rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', b.net >= 0 ? zero - h : zero);
+      rect.setAttribute('width', bw); rect.setAttribute('height', h);
+      rect.setAttribute('fill', b.net >= 0 ? 'var(--green)' : 'var(--red)');
+      rect.setAttribute('opacity', '0.85');
+      const t = document.createElementNS(ns, 'title');
+      t.textContent = b.key + ': net ' + (b.net >= 0 ? '+' : '-') + Math.abs(b.net).toFixed(2) + ' USD (' + b.roundTrips + ' RT)';
+      rect.appendChild(t);
+      svg.appendChild(rect);
+      if (i === 0 || i === buckets.length - 1) {
+        const txt = document.createElementNS(ns, 'text');
+        txt.setAttribute('x', x); txt.setAttribute('y', H - 6);
+        txt.setAttribute('fill', 'var(--dim)'); txt.setAttribute('font-size', '9');
+        txt.textContent = b.key;
+        svg.appendChild(txt);
+      }
+    });
+  }
+
+  function histEquityChart(svg, rows) {
+    svg.innerHTML = '';
+    const pts = rows.filter((r) => r.equityEod != null);
+    if (pts.length < 2) return;
+    const W = 820, H = 200, pad = 28;
+    const vals = pts.map((p) => p.equityEod);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const span = Math.max(1, max - min);
+    const ns = 'http://www.w3.org/2000/svg';
+    const coords = pts.map((p, i) => {
+      const x = pad + (i / (pts.length - 1)) * (W - 2 * pad);
+      const y = pad + (1 - (p.equityEod - min) / span) * (H - 2 * pad);
+      return [x, y];
+    });
+    const path = document.createElementNS(ns, 'polyline');
+    path.setAttribute('points', coords.map((c) => c.join(',')).join(' '));
+    path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'var(--accent)');
+    path.setAttribute('stroke-width', '2');
+    svg.appendChild(path);
+    const mk = (x, y, label, anchor) => {
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', x); t.setAttribute('y', y);
+      t.setAttribute('fill', 'var(--muted)'); t.setAttribute('font-size', '10');
+      t.setAttribute('text-anchor', anchor);
+      t.textContent = '$' + Math.round(label).toLocaleString('en-US');
+      svg.appendChild(t);
+    };
+    mk(coords[0][0], coords[0][1] - 6, pts[0].equityEod, 'start');
+    mk(coords[coords.length - 1][0], coords[coords.length - 1][1] - 6, pts[pts.length - 1].equityEod, 'end');
+  }
+
+  function renderHistory() {
+    if (!histRows.length) {
+      document.getElementById('histTable').innerHTML =
+        '<tr><td colspan="10" class="muted">No history yet - one row is written per UTC day.</td></tr>';
+      return;
+    }
+    const buckets = aggregate(histRows, histRange);
+    const nets = buckets.map((b) => b.net);
+    const best = Math.max(...nets), worst = Math.min(...nets);
+    const totalRealized = buckets.reduce((s, b) => s + b.realized, 0);
+    const totalFees = buckets.reduce((s, b) => s + b.fees, 0);
+    const totNet = totalRealized - totalFees;
+    const cur = buckets[buckets.length - 1];
+    const grossAll = totalRealized + totalFees;
+    const sign = (v) => (v >= 0 ? '+' : '-');
+    const setTxt = (id, txt, cls) => {
+      const el = document.getElementById(id);
+      el.textContent = txt;
+      if (cls) el.className = cls;
+    };
+    setTxt('hsRealized', sign(totalRealized) + '$' + fmt(Math.abs(totalRealized)), totalRealized >= 0 ? 'pos' : 'neg');
+    setTxt('hsFees', '$' + fmt(totalFees, 2));
+    setTxt('hsNet', sign(totNet) + '$' + fmt(Math.abs(totNet)), totNet >= 0 ? 'pos' : 'neg');
+    setTxt('hsWin', fmt(cur.winRate * 100, 1) + '%');
+    setTxt('hsPf', cur.pf === null ? 'inf' : fmt(cur.pf));
+    setTxt('hsRt', String(buckets.reduce((s, b) => s + b.roundTrips, 0)));
+    setTxt('hsBest', sign(best) + '$' + fmt(Math.abs(best)), best >= 0 ? 'pos' : 'neg');
+    setTxt('hsWorst', sign(worst) + '$' + fmt(Math.abs(worst)), worst >= 0 ? 'pos' : 'neg');
+    setTxt('hsFeePct', grossAll > 0 ? fmt((totalFees / grossAll) * 100, 2) + '%' : '-');
+    histBarChart(document.getElementById('histPnlChart'), buckets);
+    histEquityChart(document.getElementById('histEquityChart'), histRows);
+    document.getElementById('histTable').innerHTML = histRows.slice().reverse().slice(0, 60).map((r) => {
+      const pf = r.profitFactor === null ? 'inf' : fmt(r.profitFactor);
+      const netCls = r.netUsd >= 0 ? 'pos' : 'neg';
+      const reaCls = (r.realizedUsd || 0) >= 0 ? 'pos' : 'neg';
+      const eq = r.equityEod != null ? '$' + fmt(r.equityEod) : '-';
+      const pe = r.priceEod != null ? '$' + fmt(r.priceEod) : '-';
+      return '<tr><td>' + r.day + '</td>'
+        + '<td class="' + netCls + '">' + sign(r.netUsd || 0) + '$' + fmt(Math.abs(r.netUsd || 0)) + '</td>'
+        + '<td class="' + reaCls + '">' + sign(r.realizedUsd || 0) + '$' + fmt(Math.abs(r.realizedUsd || 0)) + '</td>'
+        + '<td>$' + fmt(r.feesUsd || 0) + '</td>'
+        + '<td>' + (r.roundTrips || 0) + '</td>'
+        + '<td>' + (r.fills || 0) + '</td>'
+        + '<td>' + fmt(((r.sells && r.wins ? r.wins / r.sells : r.winRate) || 0) * 100, 0) + '%</td>'
+        + '<td>' + pf + '</td>'
+        + '<td>' + eq + '</td>'
+        + '<td>' + pe + '</td></tr>';
+    }).join('');
+  }
+
+  async function loadHistory() {
+    try {
+      const res = await fetch('/api/history');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      histRows = j.days || [];
+      renderHistory();
+    } catch (e) {
+      console.warn('[dash] history load failed: ' + (e && e.message));
+    }
+  }
+  document.querySelectorAll('#histRange .seg-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#histRange .seg-btn').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      histRange = b.dataset.hrange;
+      renderHistory();
+    });
+  });
+  loadHistory();
+  setInterval(loadHistory, 60000);
 
   connect();
 </script>
