@@ -62,16 +62,18 @@ function seededStore(chainSol: number, gridQty: number, dcaQty: number): StateSt
   return store;
 }
 
-test('reconcile trims books to the on-chain balance and books the gap as fees', () => {
+test('reconcile trims books to the on-chain balance and books the gap as recon adjustment (NOT fees)', () => {
   // Chain has 1.0 SOL but books claim grid 0 + dca 1.215 -> 0.215 phantom.
   const store = seededStore(1.0, 0, 1.215);
   const price = 104;
   const trim = store.reconcileSubBooksToPosition(price);
   assert.ok(Math.abs(trim - 0.215) < 1e-9, `trim ${trim} expected 0.215`);
   assert.ok(store.subBooksConserved(), 'books must equal chain position after reconcile');
+  const d = store.strategies.dca.subBook;
+  assert.equal(d.feesPaidUsd, 0, 'real fees are booked per-trade; trims must not inflate fees');
   assert.ok(
-    Math.abs(store.strategies.dca.subBook.feesPaidUsd - 0.215 * price) < 1e-6,
-    'phantom SOL must be attributed to fees at the current price'
+    Math.abs((d.reconAdjustUsd ?? 0) - 0.215 * price) < 1e-6,
+    'phantom SOL value must land in reconAdjustUsd at the current price'
   );
 });
 

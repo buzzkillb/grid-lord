@@ -166,16 +166,20 @@ export class StateStore extends EventEmitter {
     const drift = total - pos.baseQty;
     if (drift <= 1e-9 || total <= 0) return 0;
     const trim = Math.min(drift, total);
-    const feeUsd = trim * priceUsd;
+    const trimUsd = trim * priceUsd;
+    // Book the trim as a reconciliation adjustment, NOT as fees: real network
+    // fees are already captured per-trade (recordTrade). Valuing the inventory
+    // correction at spot inflated feesPaidUsd (e.g. a 5 SOL trim during a
+    // rally logged as ~$560 of "fees"), making per-strategy Net dishonest.
     if (g && gq > 0) {
       const share = gq / total;
       g.baseQty -= trim * share;
-      g.feesPaidUsd += feeUsd * share;
+      g.reconAdjustUsd = (g.reconAdjustUsd ?? 0) + trimUsd * share;
     }
     if (d && dq > 0) {
       const share = dq / total;
       d.baseQty -= trim * share;
-      d.feesPaidUsd += feeUsd * share;
+      d.reconAdjustUsd = (d.reconAdjustUsd ?? 0) + trimUsd * share;
     }
     return trim;
   }
@@ -394,6 +398,27 @@ export class StateStore extends EventEmitter {
         }
         if (raw.strategies.dca) {
           this.strategies.dca = { ...this.strategies.dca, ...raw.strategies.dca, enabled: this.strategies.dca.enabled };
+        }
+        // ONE-TIME LEDGER CORRECTION: prior builds booked reconcile-trims into
+        // subBook.feesPaidUsd, inflating per-strategy fees (e.g. DCA showed
+        // $11k of "fees" that were really inventory corrections). Real fees
+        // live in the trade ledger, so rebuild each SOL sub-book's fee total
+        // from actual recorded trades and move the residual to reconAdjustUsd.
+        for (const id of ['grid', 'dca'] as const) {
+          const book = this.strategies[id].subBook;
+          if (!book) continue;
+          const realFees = this.trades
+            .filter((t) => t.strategyId === id)
+            .reduce((s, t) => s + (t.feeUsd || 0), 0);
+          const inflated = Math.max(0, book.feesPaidUsd - realFees);
+          if (inflated > 0.01) {
+            book.reconAdjustUsd = (book.reconAdjustUsd ?? 0) + inflated;
+            book.feesPaidUsd = realFees;
+            console.log(
+              `[persist] ledger correction (${id}): moved ${inflated.toFixed(2)} ` +
+              `of reconcile-trims out of fees into reconAdjust (real fees ${realFees.toFixed(2)})`
+            );
+          }
         }
         for (const [id, m] of Object.entries(raw.strategies.memes ?? {})) {
           if (this.strategies.memes[id]) this.strategies.memes[id] = { ...this.strategies.memes[id], ...m };

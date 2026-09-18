@@ -147,6 +147,13 @@ export interface StrategySubBook {
   realizedPnlUsd: number;
   /** Cumulative fees paid by THIS strategy's fills (USD). */
   feesPaidUsd: number;
+  /**
+   * Cumulative book-vs-chain reconciliation trims (USD, measurement only).
+   * These are NOT fees: they correct sub-book inventory for native-SOL network
+   * fees and shrink-to-available sells already booked elsewhere. Kept separate
+   * so per-strategy fee/net reporting stays honest.
+   */
+  reconAdjustUsd?: number;
 }
 
 /**
